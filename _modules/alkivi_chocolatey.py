@@ -1207,7 +1207,7 @@ def add_source(name, source_location, username=None, password=None, allow_self_s
     if allow_self_service:
         cmd.extend(["--allow-self-service"])
     if admin_only:
-        cmd.extend(["--admin-only"])
+        cmd.extend(["--adminonly"])
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
 
     if result["retcode"] != 0:
