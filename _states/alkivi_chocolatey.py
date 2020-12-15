@@ -69,16 +69,13 @@ def source_present(
         if enabled == (source["Disabled"] == 'True'):
             need_changes['enabled'] = enabled
         if allow_self_service != (source["Self-Service"] == 'True'):
-            logging.debug('Self-Service')
-            logging.debug(source)
-            logging.debug(allow_self_service)
             need_changes['allow_self_service'] = allow_self_service
             need_to_remove = True
         if admin_only != (source["Admin-Only"] == 'True'):
-            logging.debug('Admin-Only')
-            logging.debug(source)
-            logging.debug(admin_only)
             need_changes['admin_only'] = admin_only 
+            need_to_remove = True
+        if source_location != source["URL: "]:
+            need_changes['source_location'] = source_location
             need_to_remove = True
 
 
@@ -105,17 +102,17 @@ def source_present(
                                                           allow_self_service=allow_self_service,
                                                           admin_only=admin_only)
         ret["changes"] = {name: "Was recreated."}
-        ret["comments"] = result
+        ret["comment"] = result
 
     elif 'enabled' in need_changes:
         if need_changes['enabled']:
             result = __salt__["chocolatey.enable_source"](name)
             ret["changes"] = {name: "Was enabled."}
-            ret["comments"] = result
+            ret["comment"] = result
         else:
             result = __salt__["chocolatey.disable_source"](name)
             ret["changes"] = {name: "Was disabled."}
-            ret["comments"] = result
+            ret["comment"] = result
 
     return ret
 
@@ -151,7 +148,7 @@ def source_absent(
         return ret
 
     result = __salt__["alkivi_chocolatey.remove_source"](name)
-    ret["changes"] = {name: "Already absent."}
-    ret["comments"] = result
+    ret["changes"] = {name: "Removed."}
+    ret["comment"] = result
 
     return ret
