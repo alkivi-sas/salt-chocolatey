@@ -64,6 +64,8 @@ def source_present(
     sources = __salt__["alkivi_chocolatey.list_sources"]()
     need_changes = {}
     need_to_remove = False
+    need_to_create = False
+
     if name in sources:
         source = sources[name]
         if enabled == (source["Disabled"] == 'True'):
@@ -77,7 +79,8 @@ def source_present(
         if source_location != source["URL: "]:
             need_changes['source_location'] = source_location
             need_to_remove = True
-
+    else:
+        need_to_create = True
 
     # Package not installed
     if need_to_remove:
@@ -113,6 +116,14 @@ def source_present(
             result = __salt__["chocolatey.disable_source"](name)
             ret["changes"] = {name: "Was disabled."}
             ret["comment"] = result
+    elif need_to_create:
+        result = __salt__["alkivi_chocolatey.add_source"](name, source_location,
+                                                          username=username,
+                                                          password=password,
+                                                          allow_self_service=allow_self_service,
+                                                          admin_only=admin_only)
+        ret["changes"] = {name: "Was created."}
+        ret["comment"] = result
 
     return ret
 
