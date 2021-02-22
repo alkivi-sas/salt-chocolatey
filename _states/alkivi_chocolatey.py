@@ -149,7 +149,7 @@ def source_absent(
 
     # Get list of currently installed sources
     sources = __salt__["alkivi_chocolatey.list_sources"]()
-
+     
     if name not in sources:
         return ret
 
@@ -160,6 +160,98 @@ def source_absent(
 
     result = __salt__["alkivi_chocolatey.remove_source"](name)
     ret["changes"] = {name: "Removed."}
+    ret["comment"] = result
+
+    return ret
+
+
+def feature_disabled(
+    name,
+):
+    """
+    Disable a feature if enable
+
+    Args:
+
+        name (str):
+            The name of the feature to be installed. Required.
+
+    .. code-block:: yaml
+
+        feature-chocolatey:
+          chocolatey.feature_disabled:
+            - name: featurename
+
+    """
+    ret = {"name": name, "result": True, "changes": {}, "comment": ""}
+
+    # Get list of currently installed features
+    features = __salt__["alkivi_chocolatey.list_features"]()
+    # If feature not in list -> Warning error
+    if name not in features:
+        raise CommandExecutionError('Feature {0} not present'.format(name))
+
+    if name in features:
+      feature = features[name]
+      if (feature["Enabled"] == 'False'):
+          return ret
+      else:
+    # If feature in list, check status
+    # If already disabled (status == False) -> OK+
+    # Else disable_feature using module, additional if test
+            if __opts__["test"]:
+                ret["result"] = None
+                ret["changes"] = {name: "Will be removed."}
+                return ret
+
+    result = __salt__["alkivi_chocolatey.disable_feature"](name)
+    ret["changes"] = {name: "Disabled."}
+    ret["comment"] = result
+
+    return ret
+
+
+def feature_enabled(
+    name,
+):
+    """
+    Enabled a feature if disable
+
+    Args:
+
+        name (str):
+            The name of the feature to be installed. Required.
+
+    .. code-block:: yaml
+
+        feature-chocolatey:
+          chocolatey.feature_enabled:
+            - name: featurename
+
+    """
+    ret = {"name": name, "result": True, "changes": {}, "comment": ""}
+
+    # Get list of currently installed features
+    features = __salt__["alkivi_chocolatey.list_features"]()
+    # If feature not in list -> Warning error
+    if name not in features:
+        raise CommandExecutionError('Feature {0} not present'.format(name))
+
+    if name in features:
+      feature = features[name]
+      if (feature["Enabled"] == 'True'):
+          return ret
+      else:
+    # If feature in list, check status
+    # If already enabled (status == True) -> OK+
+    # Else enable_feature using module, additional if test
+            if __opts__["test"]:
+                ret["result"] = None
+                ret["changes"] = {name: "Will be removed."}
+                return ret
+
+    result = __salt__["alkivi_chocolatey.enable_feature"](name)
+    ret["changes"] = {name: "Enabled."}
     ret["comment"] = result
 
     return ret

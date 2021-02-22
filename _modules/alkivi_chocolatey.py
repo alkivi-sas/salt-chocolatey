@@ -1306,3 +1306,116 @@ def list_sources():
                 ret[name] = {"URL: ": url, "Disabled": disabled, "User: ": user, "Self-Service": self_service, "Admin-Only": admin_only}
 
     return ret
+
+
+def add_features_to_del(name):
+
+    cmd = [
+        _find_chocolatey(),
+        "feature",
+        "enable",
+        "--name",
+        name,
+    ]
+    result = __salt__["cmd.run_all"](cmd, python_shell=False)
+
+    if result["retcode"] != 0:
+        err = "Running chocolatey failed: {}".format(result["stdout"])
+        raise CommandExecutionError(err)
+
+    return result["stdout"]
+
+
+def list_features():
+    """
+    Returns the list of features.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' chocolatey.list_features
+    """
+    choc_path = _find_chocolatey()
+    cmd = [choc_path, "features"]
+
+    # This is needed to parse the output correctly
+    cmd.append("--limit-output")
+
+    result = __salt__["cmd.run_all"](cmd, python_shell=False)
+
+    # Chocolatey introduced Enhanced Exit Codes starting with version 0.10.12
+    # Exit Code 2 means there were no results, but is not a failure
+    # This may start to effect other functions in the future as Chocolatey
+    # moves more functions to this new paradigm
+    # https://github.com/chocolatey/choco/issues/1758
+    if result["retcode"] not in [0, 2]:
+        err = "Running chocolatey failed: {}".format(result["stdout"])
+        raise CommandExecutionError(err)
+
+    ret = CaseInsensitiveDict({})
+    pkg_re = re.compile(r"(.*)\|(.*)\|(.*)")
+    for line in result["stdout"].split("\n"):
+        for name, status, description in pkg_re.findall(line):
+            if name not in ret:
+                if status == 'Enabled':
+                    status = True
+                else:
+                    status = False
+                ret[name] = {"Enabled": status, "Description": description}
+
+    return ret
+
+
+def _change_feature_state(name, state):
+    """
+    Instructs Chocolatey to change the state of a feature.
+
+    name
+        Name of the feature to affect.
+
+    state
+        State in which you want the chocolatey feature.
+
+    """
+    cmd = [_find_chocolatey(), "feature", state, "--name", name]
+    result = __salt__["cmd.run_all"](cmd, python_shell=False)
+
+    if result["retcode"] != 0:
+        err = "Running chocolatey failed: {}".format(result["stdout"])
+        raise CommandExecutionError(err)
+
+    return result["stdout"]
+
+
+def enable_feature(name):
+    """
+    Instructs Chocolatey to enable a feature.
+
+    name
+        Name of the feature to enable.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' chocolatey.enable_feature <name>
+
+    """
+    return _change_feature_state(name, "enable")
+
+
+def disable_feature(name):
+    """
+    Instructs Chocolatey to disable a feature.
+
+    name
+        Name of the feature to disable.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' chocolatey.disable_feature <name>
+    """
+    return _change_feature_state(name, "disable")
