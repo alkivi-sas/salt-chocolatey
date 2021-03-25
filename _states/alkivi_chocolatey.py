@@ -255,3 +255,93 @@ def feature_enabled(
     ret["comment"] = result
 
     return ret
+
+def feature_gui_disabled(
+    name,
+):
+    """
+    Disable a feature if enable
+
+    Args:
+
+        name (str):
+            The name of the feature to be installed. Required.
+
+    .. code-block:: yaml
+
+        feature-chocolatey:
+          chocolatey.feature_gui_disabled:
+            - name: featurename
+
+    """
+    ret = {"name": name, "result": True, "changes": {}, "comment": ""}
+
+    # Get list of currently installed features
+    features = __salt__["alkivi_chocolatey.list_features_gui"]()
+    # If feature not in list -> Warning error
+    if name not in features:
+        raise CommandExecutionError('Feature {0} not present'.format(name))
+
+    if name in features:
+      feature = features[name]
+      if (feature["Enabled"] == 'False'):
+          return ret
+      else:
+    # If feature in list, check status
+    # If already disabled (status == False) -> OK+
+    # Else disable_feature using module, additional if test
+            if __opts__["test"]:
+                ret["result"] = None
+                ret["changes"] = {name: "Will be removed."}
+                return ret
+
+    result = __salt__["alkivi_chocolatey.disable_feature_gui"](name)
+    ret["changes"] = {name: "Disabled."}
+    ret["comment"] = result
+
+    return ret
+
+def feature_gui_enabled(
+    name,
+):
+    """
+    Enabled a feature if disable
+
+    Args:
+
+        name (str):
+            The name of the feature to be installed. Required.
+
+    .. code-block:: yaml
+
+        feature-chocolatey:
+          chocolatey.feature_enabled:
+            - name: featurename
+
+    """
+    ret = {"name": name, "result": True, "changes": {}, "comment": ""}
+
+    # Get list of currently installed features
+    features = __salt__["alkivi_chocolatey.list_features_gui"]()
+    # If feature not in list -> Warning error
+    if name not in features:
+        raise CommandExecutionError('Feature {0} not present'.format(name))
+
+    if name in features:
+      feature = features[name]
+      if (feature["Enabled"] == 'True'):
+          return ret
+      else:
+    # If feature in list, check status
+    # If already enabled (status == True) -> OK+
+    # Else enable_feature using module, additional if test
+            if __opts__["test"]:
+                ret["result"] = None
+                ret["changes"] = {name: "Will be removed."}
+                return ret
+
+    result = __salt__["alkivi_chocolatey.enable_feature_gui"](name)
+    ret["changes"] = {name: "Enabled."}
+    ret["comment"] = result
+
+    return ret
