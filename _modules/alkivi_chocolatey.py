@@ -111,6 +111,7 @@ def _find_chocolatey():
         os.path.join(
             os.environ.get("ProgramData"), "Chocolatey", "bin", "chocolatey.exe"
         ),
+        os.path.join(os.environ.get("ProgramData"), "Chocolatey", "bin", "choco.exe"),
         os.path.join(
             os.environ.get("SystemDrive"), "Chocolatey", "bin", "chocolatey.bat"
         ),
@@ -1164,8 +1165,7 @@ def remove_source(name):
 
     return result["stdout"]
 
-
-def add_source(name, source_location, username=None, password=None, allow_self_service=False, admin_only=False):
+def add_source(name, source_location, username=None, password=None, allow_self_service=False, admin_only=False, priority=None):
     """
     Instructs Chocolatey to add a source.
 
@@ -1204,6 +1204,8 @@ def add_source(name, source_location, username=None, password=None, allow_self_s
         cmd.extend(["--user", username])
     if password:
         cmd.extend(["--password", password])
+    if priority:
+        cmd.extend(["--priority", priority])
     if allow_self_service:
         cmd.extend(["--allow-self-service"])
     if admin_only:
@@ -1317,6 +1319,85 @@ def add_features_to_del(name):
         "--name",
         name,
     ]
+    result = __salt__["cmd.run_all"](cmd, python_shell=False)
+
+    if result["retcode"] != 0:
+        err = "Running chocolatey failed: {}".format(result["stdout"])
+        raise CommandExecutionError(err)
+
+    return result["stdout"]
+
+
+def list_config():
+    """
+    Returns the list of features.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' chocolatey.list_features
+    """
+    choc_path = _find_chocolatey()
+    cmd = [choc_path, "config"]
+
+    # This is needed to parse the output correctly
+    cmd.append("--limit-output")
+
+    result = __salt__["cmd.run_all"](cmd, python_shell=False)
+
+    # Chocolatey introduced Enhanced Exit Codes starting with version 0.10.12
+    # Exit Code 2 means there were no results, but is not a failure
+    # This may start to effect other functions in the future as Chocolatey
+    # moves more functions to this new paradigm
+    # https://github.com/chocolatey/choco/issues/1758
+    if result["retcode"] not in [0, 2]:
+        err = "Running chocolatey failed: {}".format(result["stdout"])
+        raise CommandExecutionError(err)
+
+    ret = CaseInsensitiveDict({})
+    pkg_re = re.compile(r"(.*)\|(.*)\|(.*)")
+    for line in result["stdout"].split("\n"):
+        for name, value, description in pkg_re.findall(line):
+            if name not in ret:
+                ret[name] = {"Value": value, "Description": description}
+
+    return ret
+
+
+def get_config(name):
+    """
+    Instructs Chocolatey to change the state of a feature.
+
+    name
+        Name of the feature to affect.
+
+    state
+        State in which you want the chocolatey feature.
+
+    """
+    cmd = [_find_chocolatey(), "config", "get", "--name", name, "-r"]
+    result = __salt__["cmd.run_all"](cmd, python_shell=False)
+
+    if result["retcode"] != 0:
+        err = "Running chocolatey failed: {}".format(result["stdout"])
+        raise CommandExecutionError(err)
+
+    return result["stdout"]
+
+
+def set_config(name, value):
+    """
+    Instructs Chocolatey to change the state of a feature.
+
+    name
+        Name of the feature to affect.
+
+    state
+        State in which you want the chocolatey feature.
+
+    """
+    cmd = [_find_chocolatey(), "config", "set", "--name", name, "--value", value]
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
 
     if result["retcode"] != 0:

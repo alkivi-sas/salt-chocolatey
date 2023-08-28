@@ -165,6 +165,49 @@ def source_absent(
     return ret
 
 
+def config(
+    name,
+    value,
+):
+    """
+    Set a configuration value
+
+    Args:
+
+        name (str):
+            The name of the config to set. Required.
+
+        value(str):
+            The value to set. Required.
+
+    .. code-block:: yaml
+
+        feature-chocolatey:
+          chocolatey.config:
+            - name: featurename
+            - value: toto
+
+    """
+    ret = {"name": name, "result": True, "changes": {}, "comment": ""}
+
+    current_value = __salt__["alkivi_chocolatey.get_config"](name)
+    if current_value == value:
+        ret["comment"] = "No change needed"
+        return ret
+
+
+    if __opts__["test"]:
+        ret["result"] = None
+        ret["changes"] = {name: "Will be setted to {0}.".format(value)}
+        return ret
+
+    result = __salt__["alkivi_chocolatey.set_config"](name, value)
+    ret["changes"] = {name: "Set to {0}.".format(value)}
+    ret["comment"] = result
+
+    return ret
+
+
 def feature_disabled(
     name,
 ):
