@@ -11,7 +11,7 @@ Manage Chocolatey package installs
 
 import salt.utils.data
 import salt.utils.versions
-from salt.exceptions import SaltInvocationError
+from salt.exceptions import SaltInvocationError, CommandExecutionError
 import logging
 
 
