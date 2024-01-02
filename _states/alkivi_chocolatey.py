@@ -79,6 +79,8 @@ def source_present(
         if source_location != source["URL: "]:
             need_changes['source_location'] = source_location
             need_to_remove = True
+        if username is not None and password is not None:
+            need_to_remove = True
     else:
         need_to_create = True
 
