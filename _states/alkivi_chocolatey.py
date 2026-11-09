@@ -24,6 +24,82 @@ def __virtual__():
     return (False, "chocolatey module could not be loaded")
 
 
+def installed(
+    name,
+    version=None,
+    source=None,
+    force=False,
+    pre_versions=False,
+    install_args=None,
+    override_args=False,
+    force_x86=False,
+    package_args=None,
+    allow_multiple=False,
+    execution_timeout=None,
+):
+    """
+    Faster drop-in for ``chocolatey.installed``.
+
+    Reads the local package list once per run (cached) and never queries the
+    remote feed, so an up-to-date package costs no choco call. Packages whose
+    name contains "chocolatey" are seen as installed (upstream skips them and
+    reinstalls them on every run).
+
+    .. code-block:: yaml
+
+        install_firefox:
+          alkivi_chocolatey.installed:
+            - name: firefox
+    """
+    ret = {"name": name, "result": True, "changes": {}, "comment": ""}
+
+    installed_versions = __salt__["alkivi_chocolatey.list_local"]().get(name)
+    current = installed_versions[0] if installed_versions else None
+
+    if current is None:
+        ret["comment"] = "{0} {1} will be installed".format(name, version or "latest")
+    elif version and not salt.utils.versions.compare(ver1=current, oper="==", ver2=version):
+        if allow_multiple:
+            ret["comment"] = "{0} {1} will be installed side by side with {2}".format(name, version, current)
+        else:
+            ret["comment"] = "{0} {1} will be installed over {2}".format(name, version, current)
+            force = True
+    elif force:
+        ret["comment"] = "{0} {1} will be reinstalled".format(name, current)
+    else:
+        ret["comment"] = "{0} {1} is already installed".format(name, current)
+        return ret
+
+    if __opts__["test"]:
+        ret["result"] = None
+        ret["changes"] = {name: {"old": current or "", "new": version or "latest"}}
+        return ret
+
+    try:
+        __salt__["alkivi_chocolatey.install"](
+            name=name,
+            version=version,
+            source=source,
+            force=force,
+            pre_versions=pre_versions,
+            install_args=install_args,
+            override_args=override_args,
+            force_x86=force_x86,
+            package_args=package_args,
+            allow_multiple=allow_multiple,
+            execution_timeout=execution_timeout,
+        )
+    except CommandExecutionError as exc:
+        ret["result"] = False
+        ret["comment"] = "Failed to install {0}: {1}".format(name, exc)
+        return ret
+
+    new_versions = __salt__["alkivi_chocolatey.list_local"]().get(name)
+    ret["comment"] = "{0} installed successfully".format(name)
+    ret["changes"] = {name: {"old": current or "", "new": new_versions[0] if new_versions else ""}}
+    return ret
+
+
 def source_present(
     name,
     source_location,
@@ -238,7 +314,7 @@ def feature_disabled(
 
     if name in features:
       feature = features[name]
-      if (feature["Enabled"] == 'False'):
+      if not feature["Enabled"]:
           return ret
       else:
     # If feature in list, check status
@@ -284,7 +360,7 @@ def feature_enabled(
 
     if name in features:
       feature = features[name]
-      if (feature["Enabled"] == 'True'):
+      if feature["Enabled"]:
           return ret
       else:
     # If feature in list, check status
@@ -329,7 +405,7 @@ def feature_gui_disabled(
 
     if name in features:
       feature = features[name]
-      if (feature["Enabled"] == 'False'):
+      if not feature["Enabled"]:
           return ret
       else:
     # If feature in list, check status
@@ -374,7 +450,7 @@ def feature_gui_enabled(
 
     if name in features:
       feature = features[name]
-      if (feature["Enabled"] == 'True'):
+      if feature["Enabled"]:
           return ret
       else:
     # If feature in list, check status

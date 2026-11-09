@@ -61,6 +61,27 @@ def _clear_context():
         __context__.pop(var)
 
 
+_CACHE_PREFIX = "alkivi_chocolatey."
+
+
+def _cached(key, func):
+    """
+    Return func() cached in __context__ for the current run (each choco call costs seconds).
+    """
+    key = _CACHE_PREFIX + key
+    if key not in __context__:
+        __context__[key] = func()
+    return __context__[key]
+
+
+def _clear_cache():
+    """
+    Drop cached choco listings. Call it after every command that changes choco state.
+    """
+    for var in [x for x in __context__ if x.startswith(_CACHE_PREFIX)]:
+        __context__.pop(var)
+
+
 def _yes():
     """
     Returns ['--yes'] if on v0.9.9.0 or later, otherwise returns an empty list
@@ -511,6 +532,39 @@ def list_(
     return ret
 
 
+def list_local():
+    """
+    Returns the locally installed packages and their versions, cached for the run.
+
+    Unlike ``list``, packages whose name contains "chocolatey" are kept.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' alkivi_chocolatey.list_local
+    """
+    return _cached("local", _list_local)
+
+
+def _list_local():
+    cmd = [_find_chocolatey(), "list", "--limit-output"]
+    # Starting with 2.0.0, list only returns local packages and --local-only is gone
+    if _LooseVersion(chocolatey_version()) < _LooseVersion("2.0.0"):
+        cmd.append("--local-only")
+    result = __salt__["cmd.run_all"](cmd, python_shell=False)
+
+    if result["retcode"] not in [0, 2]:
+        err = "Running chocolatey failed: {}".format(result["stdout"])
+        raise CommandExecutionError(err)
+
+    ret = CaseInsensitiveDict({})
+    for name, ver in re.findall(r"(\S+)\|(\S+)", result["stdout"]):
+        ret.setdefault(name, []).append(ver)
+
+    return ret
+
+
 def list_webpi():
     """
     Instructs Chocolatey to pull a full package list from the Microsoft Web PI
@@ -681,6 +735,7 @@ def install(
     cmd.extend(_no_progress())
     cmd.extend(_yes())
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
+    _clear_cache()
 
     if result["retcode"] not in [0, 1641, 3010]:
         err = "Running chocolatey failed: {}".format(result["stdout"])
@@ -801,6 +856,7 @@ def install_missing(name, version=None, source=None):
     # Shouldn't need this as this code should never run on v0.9.9 and newer
     cmd.extend(_yes())
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
+    _clear_cache()
 
     if result["retcode"] != 0:
         err = "Running chocolatey failed: {}".format(result["stdout"])
@@ -933,6 +989,7 @@ def uninstall(name, version=None, uninstall_args=None, override_args=False):
         cmd.extend(["--overridearguments"])
     cmd.extend(_yes())
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
+    _clear_cache()
 
     if result["retcode"] not in [0, 1605, 1614, 1641]:
         err = "Running chocolatey failed: {}".format(result["stdout"])
@@ -1028,6 +1085,7 @@ def upgrade(
     cmd.extend(_yes())
 
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
+    _clear_cache()
 
     if result["retcode"] not in [0, 1641, 3010]:
         err = "Running chocolatey failed: {}".format(result["stdout"])
@@ -1073,6 +1131,7 @@ def update(name, source=None, pre_versions=False):
     cmd.extend(_no_progress())
     cmd.extend(_yes())
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
+    _clear_cache()
 
     if result["retcode"] not in [0, 1641, 3010]:
         err = "Running chocolatey failed: {}".format(result["stdout"])
@@ -1158,6 +1217,7 @@ def remove_source(name):
         name,
     ]
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
+    _clear_cache()
 
     if result["retcode"] != 0:
         err = "Running chocolatey failed: {}".format(result["stdout"])
@@ -1211,6 +1271,7 @@ def add_source(name, source_location, username=None, password=None, allow_self_s
     if admin_only:
         cmd.extend(["--adminonly"])
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
+    _clear_cache()
 
     if result["retcode"] != 0:
         err = "Running chocolatey failed: {}".format(result["stdout"])
@@ -1232,6 +1293,7 @@ def _change_source_state(name, state):
     """
     cmd = [_find_chocolatey(), "source", state, "--name", name]
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
+    _clear_cache()
 
     if result["retcode"] != 0:
         err = "Running chocolatey failed: {}".format(result["stdout"])
@@ -1283,6 +1345,10 @@ def list_sources():
 
         salt '*' chocolatey.list_sources
     """
+    return _cached("sources", _list_sources)
+
+
+def _list_sources():
     choc_path = _find_chocolatey()
     cmd = [choc_path, "source"]
 
@@ -1320,6 +1386,7 @@ def add_features_to_del(name):
         name,
     ]
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
+    _clear_cache()
 
     if result["retcode"] != 0:
         err = "Running chocolatey failed: {}".format(result["stdout"])
@@ -1338,6 +1405,10 @@ def list_config():
 
         salt '*' chocolatey.list_features
     """
+    return _cached("config", _list_config)
+
+
+def _list_config():
     choc_path = _find_chocolatey()
     cmd = [choc_path, "config"]
 
@@ -1399,6 +1470,7 @@ def set_config(name, value):
     """
     cmd = [_find_chocolatey(), "config", "set", "--name", name, "--value", value]
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
+    _clear_cache()
 
     if result["retcode"] != 0:
         err = "Running chocolatey failed: {}".format(result["stdout"])
@@ -1417,6 +1489,10 @@ def list_features():
 
         salt '*' chocolatey.list_features
     """
+    return _cached("features", _list_features)
+
+
+def _list_features():
     choc_path = _find_chocolatey()
     cmd = [choc_path, "features"]
 
@@ -1461,6 +1537,7 @@ def _change_feature_state(name, state):
     """
     cmd = [_find_chocolatey(), "feature", state, "--name", name]
     result = __salt__["cmd.run_all"](cmd, python_shell=False)
+    _clear_cache()
 
     if result["retcode"] != 0:
         err = "Running chocolatey failed: {}".format(result["stdout"])
