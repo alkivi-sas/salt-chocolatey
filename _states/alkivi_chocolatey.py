@@ -238,7 +238,7 @@ def feature_disabled(
 
     if name in features:
       feature = features[name]
-      if (feature["Enabled"] == 'False'):
+      if not feature["Enabled"]:
           return ret
       else:
     # If feature in list, check status
@@ -284,7 +284,7 @@ def feature_enabled(
 
     if name in features:
       feature = features[name]
-      if (feature["Enabled"] == 'True'):
+      if feature["Enabled"]:
           return ret
       else:
     # If feature in list, check status
@@ -329,7 +329,7 @@ def feature_gui_disabled(
 
     if name in features:
       feature = features[name]
-      if (feature["Enabled"] == 'False'):
+      if not feature["Enabled"]:
           return ret
       else:
     # If feature in list, check status
@@ -374,7 +374,7 @@ def feature_gui_enabled(
 
     if name in features:
       feature = features[name]
-      if (feature["Enabled"] == 'True'):
+      if feature["Enabled"]:
           return ret
       else:
     # If feature in list, check status
